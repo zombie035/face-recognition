@@ -8,3 +8,7 @@ gunicorn
 supabase
 google-generativeai
 Pillow
+face-recognition
+face-recognition-models
+dlib
+cmake
