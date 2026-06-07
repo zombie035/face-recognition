@@ -1,0 +1,33 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>Face Recognition Capture</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+  </head>
+  <body>
+    <div class="container">
+      <h2>Face Recognition Capture</h2>
+      <div class="card video-wrap">
+        <div class="video-container">
+          <video id="video" width="640" height="480" autoplay muted></video>
+          <canvas id="overlay" width="640" height="480" class="overlay" style="display:none"></canvas>
+        </div>
+
+        <div id="status" class="mt-2">
+          <div><span class="label">Recognized:</span> <span id="user-name">-</span></div>
+          <div><span class="label">Confidence:</span> <span id="confidence">-</span></div>
+          <div id="cameraStatus" class="small-muted"></div>
+        </div>
+
+        <div class="controls mt-2">
+          <button id="btnCapture">Capture</button>
+          <button id="btnRecognize" class="secondary">Recognize</button>
+          <button id="btnRegister" class="secondary">Register</button>
+        </div>
+      </div>
+    </div>
+
+    <script src="/static/js/main.js"></script>
+  </body>
+  </html>

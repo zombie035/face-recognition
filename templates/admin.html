@@ -1,0 +1,141 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>Admin Dashboard</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+  </head>
+  <body>
+    <div class="container">
+      <h2>Admin Dashboard</h2>
+
+      <div id="loginArea" class="card">
+        <h3>Admin Login</h3>
+        <label>Username: <input id="username" /></label>
+        <label>Password: <input id="password" type="password"/></label>
+        <div class="mt-2">
+          <button id="btnLogin">Login</button>
+        </div>
+      </div>
+
+      <div id="dashboard" style="display:none">
+        <div class="row">
+          <div class="card" style="flex:1">
+            <h3>Stats</h3>
+            <div class="stat-card"><div class="stat-number" id="statUsers">-</div><div class="stat-label">Users</div></div>
+            <div class="stat-card mt-2"><div class="stat-number" id="statPhotos">-</div><div class="stat-label">Photos</div></div>
+          </div>
+          <div class="card" style="flex:2">
+            <h3>Actions</h3>
+            <div class="gap-2 flex">
+              <button id="btnRefresh">Refresh</button>
+              <button id="btnLogout" class="secondary">Logout</button>
+            </div>
+            <div style="margin-top:8px">
+              <h4>Change Password</h4>
+              <input id="oldpw" placeholder="Old password" type="password" />
+              <input id="newpw" placeholder="New password" type="password" />
+              <button id="btnChangePw">Change</button>
+            </div>
+          </div>
+        </div>
+
+        <div style="margin-top:12px" class="row">
+          <div class="card" style="flex:1">
+            <h3>Users</h3>
+            <div id="usersList">Loading...</div>
+          </div>
+          <div class="card" style="flex:2">
+            <h3>Gallery</h3>
+            <div id="gallery"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      function setToken(t){ localStorage.setItem('admin_token', t); }
+      function getToken(){ return localStorage.getItem('admin_token'); }
+
+      async function login(){
+        const u=document.getElementById('username').value;
+        const p=document.getElementById('password').value;
+        const res=await fetch('/admin/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:u,password:p})});
+        const j=await res.json();
+        if(j.token){ setToken(j.token); showDashboard(); } else alert('login failed')
+      }
+
+      async function showDashboard(){
+        document.getElementById('loginArea').style.display='none';
+        document.getElementById('dashboard').style.display='block';
+        await loadStats();
+        await loadUsers();
+        await loadGallery();
+      }
+
+      async function loadStats(){
+        const t=getToken();
+        const res=await fetch('/admin/stats',{headers:{'Authorization':'Bearer '+t}});
+        if(res.status!==200){ logout(); return; }
+        const j=await res.json();
+        const su = document.getElementById('statUsers'); if(su) su.innerText = j.total_users;
+        const sp = document.getElementById('statPhotos'); if(sp) sp.innerText = j.total_photos;
+        const st = document.getElementById('statToday'); if(st) st.innerText = j.todays_photos;
+        const sux = document.getElementById('statUnknowns'); if(sux) sux.innerText = j.unknowns;
+      }
+
+      async function loadUsers(){
+        const t=getToken();
+        const res=await fetch('/admin/users',{headers:{'Authorization':'Bearer '+t}});
+        const users=await res.json();
+        let html='<ul>';
+        for(const u of users){ html+=`<li>${u.name} (${u.email||'-'})</li>` }
+        html+='</ul>';
+        document.getElementById('usersList').innerHTML = html;
+      }
+
+      async function loadGallery(page=1){
+        const t=getToken();
+        const res=await fetch(`/photos?page=${page}&per_page=100`,{headers:{'Authorization':'Bearer '+t}});
+        if(res.status!==200){ logout(); return; }
+        const j=await res.json();
+        const items=j.items;
+        let html = '';
+        for(const it of items){
+          // fetch image blob with auth header
+          const imgResp = await fetch(`/photo/${it.id}/image`,{headers:{'Authorization':'Bearer '+t}});
+          let imgUrl = '';
+          if(imgResp.status===200){
+            const blob = await imgResp.blob();
+            imgUrl = URL.createObjectURL(blob);
+          }
+          html += `<div class="gallery-item"><img src="${imgUrl}" alt="img" /><div class="mt-2 small-muted">${it.user_name||'Unknown'}</div><small>${new Date(it.timestamp).toLocaleString()}</small><div class="actions"><button class="secondary" onclick="del(${it.id})">Delete</button></div></div>`;
+        }
+        document.getElementById('gallery').innerHTML = html;
+      }
+
+      async function del(id){
+        const t=getToken();
+        await fetch(`/photo/${id}`,{method:'DELETE',headers:{'Authorization':'Bearer '+t}});
+        loadGallery();
+      }
+
+      function logout(){ localStorage.removeItem('admin_token'); document.getElementById('dashboard').style.display='none'; document.getElementById('loginArea').style.display='block'; }
+
+      async function changePw(){
+        const t=getToken();
+        const old=document.getElementById('oldpw').value; const nw=document.getElementById('newpw').value;
+        const res=await fetch('/admin/change_password',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+t},body:JSON.stringify({old_password:old,new_password:nw})});
+        const j=await res.json(); if(j.message){ alert('Password changed'); } else alert('Failed');
+      }
+
+      document.getElementById('btnLogin').onclick=login;
+      document.getElementById('btnRefresh').onclick=()=>{ loadStats(); loadUsers(); loadGallery(); };
+      document.getElementById('btnLogout').onclick=logout;
+      document.getElementById('btnChangePw').onclick=changePw;
+
+      // auto-show if token
+      if(getToken()) showDashboard();
+    </script>
+  </body>
+  </html>
